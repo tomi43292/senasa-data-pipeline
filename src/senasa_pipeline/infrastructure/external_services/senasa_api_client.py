@@ -1,0 +1,3 @@
+# placeholder para cliente API SENASA
+class SenasaAPIClient:
+    ...

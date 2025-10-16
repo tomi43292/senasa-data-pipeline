@@ -1,0 +1,3 @@
+# placeholder para scraper web SENASA (playwright/selenium)
+class SenasaWebScraper:
+    ...
