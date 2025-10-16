@@ -1,23 +1,25 @@
 from __future__ import annotations
-from pathlib import Path
-from typing import Sequence, Any
 
-from senasa_pipeline.domain.model import (
-    SenasaRecord,
-    TamborSenasa,
-    EstablecimientoSenasa,
-    CodigoSenasa,
-    CUIT,
-    FechaVencimiento,
-    ISenasaRepository,
-    ISenasaScrapingService,
-)
+from pathlib import Path
+from typing import Any, Sequence
+
 from senasa_pipeline.application.use_cases import (
-    ISenasaDataPort,
     INotificationPort,
+    ISenasaDataPort,
     IStoragePort,
     SenasaRecordDTO,
 )
+from senasa_pipeline.domain.model import (
+    CUIT,
+    CodigoSenasa,
+    EstablecimientoSenasa,
+    FechaVencimiento,
+    ISenasaRepository,
+    ISenasaScrapingService,
+    SenasaRecord,
+    TamborSenasa,
+)
+
 
 # =========================
 # Repositories
@@ -38,7 +40,8 @@ class DuckDBSenasaRepository(ISenasaRepository):
 class PostgreSQLSenasaRepository(ISenasaRepository):
     def save(self, record: SenasaRecord) -> None: ...
     def get_by_nro(self, nro_senasa: CodigoSenasa) -> SenasaRecord | None: ...
-    def list(self, limit: int = 100, offset: int = 0) -> Sequence[SenasaRecord]: ...
+    def list(self, limit: int = 100, offset: int = 0) -> Sequence[SenasaRecord]:
+        return []
 
 # =========================
 # External Services (Scraping/APIs)

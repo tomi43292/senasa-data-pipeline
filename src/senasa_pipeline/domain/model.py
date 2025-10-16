@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import date
-from typing import Protocol, runtime_checkable, Sequence
+from typing import Protocol, Sequence, runtime_checkable
+
 
 # =========================
 # Value Objects
@@ -13,9 +15,9 @@ class CUIT(str):
         return str.__new__(cls, value)
 
 class CodigoSenasa(str):
-    """Value Object para código SENASA (formato flexible, validación mínima)."""
+    """Value Object para código SENASA (13 dígitos xx-xxxxxxxx-x)."""
     def __new__(cls, value: str) -> "CodigoSenasa":
-        assert len(value) >= 3, "Código SENASA inválido"
+        assert len(value) >= 13, "Código SENASA inválido"
         return str.__new__(cls, value)
 
 class FechaVencimiento(date):
@@ -43,7 +45,6 @@ class TamborSenasa:
     establecimiento_codigo: CodigoSenasa
     fecha_extraccion: date
     peso: float
-    tipo_miel: str
     origen: str
     productor: str
 
