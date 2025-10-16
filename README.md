@@ -1,2 +1,4 @@
-# senasa-data-pipeline
-Modern data pipeline for SENASA: scraping, ETL, validation, NLP, and FastAPI, built with Clean Architecture.
+# SENASA Data Pipeline
+
+API y pipeline de datos moderno para sincronización, scraping, ETL, validación y NLP sobre datos de SENASA.
+
