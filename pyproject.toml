@@ -31,7 +31,8 @@ pyarrow = "^17.0.0"
 openpyxl = "^3.1.2"
 xlsxwriter = "^3.2.0"
 rich = "^13.8.0"
-typer = {version = "^0.12.0", extras = ["all"]}
+typer = {version = "^0.12.3", extras = ["all"]}
+click = "^8.1.7"
 spacy = "^3.7.4"
 rapidfuzz = "^3.9.3"
 scikit-learn = "^1.5.0"
@@ -50,7 +51,7 @@ pre-commit = "^3.8.0"
 mkdocs-material = "^9.5.0"
 
 [tool.poetry.scripts]
-senasa = "senasa_pipeline.cli.main:app"
+senasa = "senasa_pipeline.presentation.cli.main:app"
 
 [tool.ruff]
 target-version = "py311"
