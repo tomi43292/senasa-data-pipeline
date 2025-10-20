@@ -3,7 +3,6 @@ from typing import Protocol
 
 from senasa_pipeline.application.dtos.sync_request_dto import SyncRequestDTO
 from senasa_pipeline.domain.entities.senasa_record import SenasaRecord
-from senasa_pipeline.domain.model import IDataValidationService, ISenasaScrapingService
 from senasa_pipeline.domain.repositories.interfaces import (
     ISenasaRepository,
 )
