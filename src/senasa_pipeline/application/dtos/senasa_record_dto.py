@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+
 from senasa_pipeline.domain.entities.senasa_record import SenasaRecord
+
 
 @dataclass(frozen=True)
 class SenasaRecordDTO:

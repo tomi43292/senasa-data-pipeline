@@ -56,7 +56,7 @@ senasa = "senasa_pipeline.cli.main:app"
 target-version = "py311"
 line-length = 100
 select = ["E","W","F","I","N","UP","S","B","C4","ICN","PIE","T20"]
-ignore = ["E203","E266","E501","W503"]
+ignore = ["E203","E266","E501"]
 
 [tool.ruff.format]
 quote-style = "double"

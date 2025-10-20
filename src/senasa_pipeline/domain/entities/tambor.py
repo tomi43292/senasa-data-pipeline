@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import date
+
 from senasa_pipeline.domain.value_objects.codigo_senasa import CodigoSenasa
+
 
 @dataclass(frozen=True)
 class Tambor:

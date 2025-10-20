@@ -1,5 +1,6 @@
 from datetime import date
 
+
 class FechaVencimiento(date):
     @classmethod
     def from_date(cls, d: date) -> "FechaVencimiento":

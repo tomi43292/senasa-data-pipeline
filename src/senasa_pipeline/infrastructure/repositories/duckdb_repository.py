@@ -1,7 +1,9 @@
-from typing import Sequence
+from collections.abc import Sequence
+
 from senasa_pipeline.domain.entities.senasa_record import SenasaRecord
 from senasa_pipeline.domain.repositories.interfaces import ISenasaRepository
 from senasa_pipeline.domain.value_objects.codigo_senasa import CodigoSenasa
+
 
 class DuckDBSenasaRepository(ISenasaRepository):
     def __init__(self) -> None:

@@ -3,6 +3,7 @@ from senasa_pipeline.application.dtos.senasa_record_dto import SenasaRecordDTO
 from senasa_pipeline.application.ports.storage_port import IStoragePort
 from senasa_pipeline.domain.repositories.interfaces import ISenasaRepository
 
+
 class ExportSenasaDataUseCase:
     def __init__(self, repo: ISenasaRepository, storage: IStoragePort):
         self.repo = repo
