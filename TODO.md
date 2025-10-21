@@ -14,17 +14,18 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 - [x] src/senasa_pipeline/application/use_cases/ensure_senasa_session.py
 
 ### Adapters (5)
-- [ ] src/senasa_pipeline/infrastructure/adapters/http/httpx_client.py
-- [ ] src/senasa_pipeline/infrastructure/adapters/afip/portal_cf_provider.py
+- [x] src/senasa_pipeline/infrastructure/adapters/http/httpx_client.py
+- [x] src/senasa_pipeline/infrastructure/adapters/afip/portal_cf_provider.py
 - [ ] src/senasa_pipeline/infrastructure/adapters/afip/jsf_provider.py
-- [ ] src/senasa_pipeline/infrastructure/adapters/senasa/login_consumer.py
-- [ ] src/senasa_pipeline/infrastructure/adapters/session/memory_store.py
+- [x] src/senasa_pipeline/infrastructure/adapters/senasa/login_consumer.py
+- [x] src/senasa_pipeline/infrastructure/adapters/session/memory_store.py
+- [x] src/senasa_pipeline/infrastructure/adapters/session/sqlite_store.py
 
 ### API (1)
-- [ ] src/senasa_pipeline/presentation/api/routes/auth.py
+- [x] src/senasa_pipeline/presentation/api/routes/auth.py
 
 ### Tests (2+)
-- [ ] tests/unit/test_ensure_senasa_session.py
+- [x] tests/unit/test_ensure_senasa_session.py
 - [ ] tests/unit/test_portal_cf_provider.py
 
 ## Phase 2: Resilience & Observability
@@ -34,8 +35,13 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 - [ ] Prometheus counters and histograms for auth attempts and latency
 
 ## Phase 3: Persistence & CLI
-- [ ] Implement persistent SessionStore (sqlite/duckdb)
+- [x] Implement persistent SessionStore (sqlite/duckdb)
 - [ ] CLI command: `senasa auth ensure`
+
+## Environment & Docs
+- [x] Add .env.example
+- [x] Ignore .env in .gitignore
+- [x] Load .env in settings and document variables in README
 
 ## Notes
 - Prefer Portal CF (token/sign) as primary path; fall back to JSF when needed.
