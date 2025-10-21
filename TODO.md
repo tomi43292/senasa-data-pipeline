@@ -15,8 +15,8 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 
 ### Adapters (5)
 - [x] src/senasa_pipeline/infrastructure/adapters/http/httpx_client.py
-- [x] src/senasa_pipeline/infrastructure/adapters/afip/portal_cf_provider.py
-- [ ] src/senasa_pipeline/infrastructure/adapters/afip/jsf_provider.py
+- [x] src/senasa_pipeline/infrastructure/adapters/afip/portal_cf_provider.py (robust JSON detection)
+- [ ] src/senasa_pipeline/infrastructure/adapters/afip/jsf_provider.py (fallback)
 - [x] src/senasa_pipeline/infrastructure/adapters/senasa/login_consumer.py
 - [x] src/senasa_pipeline/infrastructure/adapters/session/memory_store.py
 - [x] src/senasa_pipeline/infrastructure/adapters/session/sqlite_store.py
@@ -26,10 +26,10 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 
 ### Tests (2+)
 - [x] tests/unit/test_ensure_senasa_session.py
-- [ ] tests/unit/test_portal_cf_provider.py
+- [ ] tests/unit/test_portal_cf_provider.py (fixtures con Content-Type no JSON y HTML snippet)
 
 ## Phase 2: Resilience & Observability
-- [ ] Add tenacity-based retries with jitter per network step
+- [x] Add tenacity-based retries with jitter per network step (httpx client)
 - [ ] Add circuit breaker per upstream (AFIP, PortalCF, SENASA)
 - [ ] structlog logging with context (stage, url, status)
 - [ ] Prometheus counters and histograms for auth attempts and latency
@@ -43,7 +43,8 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 - [x] Ignore .env in .gitignore
 - [x] Load .env in settings and document variables in README
 
-## Notes
-- Prefer Portal CF (token/sign) as primary path; fall back to JSF when needed.
-- Validate SENASA session by probing `/Sur/Extracciones/List` without redirects and checking `__VIEWSTATE`.
-- No Django: use FastAPI and project’s own storage for session persistence.
+## New tasks
+- [ ] Implement JSF fallback provider for AFIP classic login (usa AFIP_PASSWORD)
+- [ ] Enhance SenasaLoginConsumer: selección de usuario en Login.aspx con __EVENTTARGET y __VIEWSTATE
+- [ ] Add logging and metrics to auth flow
+- [ ] Add integration tests using httpx.MockTransport for provider/consumer
