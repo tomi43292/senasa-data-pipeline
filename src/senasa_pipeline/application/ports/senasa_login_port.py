@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Protocol
+
 
 class SenasaLoginPort(Protocol):
     """Consumes AFIP token/sign and completes SENASA login (including user selection)."""

@@ -1,11 +1,15 @@
 from __future__ import annotations
-from typing import Protocol, Mapping, Any
+
+from collections.abc import Mapping
 from datetime import datetime
+from typing import Any, Protocol
+
 
 class SessionData(Mapping[str, Any]):
     """Typed view over session payload if needed later."""
+
     # For now inherit Mapping for flexibility; concrete implementations can subclass dict
-    pass
+
 
 class SessionStorePort(Protocol):
     """Abstract persistence for SENASA session cookies and metadata (no Django)."""
