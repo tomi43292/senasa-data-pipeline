@@ -5,13 +5,13 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 ## Phase 1: Core Architecture (12 files)
 
 ### Ports (4)
-- [ ] src/senasa_pipeline/application/ports/session_store_port.py
-- [ ] src/senasa_pipeline/application/ports/http_client_port.py
-- [ ] src/senasa_pipeline/application/ports/auth_provider_port.py
-- [ ] src/senasa_pipeline/application/ports/senasa_login_port.py
+- [x] src/senasa_pipeline/application/ports/session_store_port.py
+- [x] src/senasa_pipeline/application/ports/http_client_port.py
+- [x] src/senasa_pipeline/application/ports/auth_provider_port.py
+- [x] src/senasa_pipeline/application/ports/senasa_login_port.py
 
 ### Use Cases (1)
-- [ ] src/senasa_pipeline/application/use_cases/ensure_senasa_session.py
+- [x] src/senasa_pipeline/application/use_cases/ensure_senasa_session.py
 
 ### Adapters (5)
 - [ ] src/senasa_pipeline/infrastructure/adapters/http/httpx_client.py
