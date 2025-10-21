@@ -12,7 +12,7 @@ class SessionData(Mapping[str, Any]):
 
 
 class SessionStorePort(Protocol):
-    """Abstract persistence for SENASA session cookies and metadata (no Django)."""
+    """Abstract persistence for SENASA session cookies and metadata."""
 
     def load(self) -> tuple[dict[str, str], datetime | None, bool]:
         """

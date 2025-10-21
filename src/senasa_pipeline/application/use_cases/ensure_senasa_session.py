@@ -1,24 +1,29 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
-from senasa_pipeline.application.ports.session_store_port import SessionStorePort
 from senasa_pipeline.application.ports.auth_provider_port import AuthProviderPort
 from senasa_pipeline.application.ports.senasa_login_port import SenasaLoginPort
+from senasa_pipeline.application.ports.session_store_port import SessionStorePort
+
 
 class Clock(Protocol):
     def now(self) -> datetime: ...
 
+
 class SystemClock:
     def now(self) -> datetime:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
+
 
 @dataclass(frozen=True)
 class EnsureSessionResult:
     status: str  # "ALREADY_ACTIVE" | "REFRESHED" | "ERROR"
     expires_at: datetime | None
     message: str
+
 
 class EnsureSenasaSessionUseCase:
     """Orchestrates AFIP→SENASA login, preferring cached session when valid."""
@@ -42,10 +47,13 @@ class EnsureSenasaSessionUseCase:
         cookies, expires_at, is_active = self.store.load()
         # If we have cookies and not expired, attempt validation probe
         now = self.clock.now()
-        if cookies and expires_at and expires_at > now and is_active:
+        session_exists = cookies and expires_at and expires_at > now and is_active
+        if session_exists:
             try:
                 if self.consumer.validate_session():
-                    return EnsureSessionResult("ALREADY_ACTIVE", expires_at, "Valid session from store")
+                    return EnsureSessionResult(
+                        "ALREADY_ACTIVE", expires_at, "Valid session from store"
+                    )
             except Exception:
                 # ignore and re-login
                 pass
@@ -61,8 +69,12 @@ class EnsureSenasaSessionUseCase:
                 self.store.mark_inactive()
                 return EnsureSessionResult("ERROR", None, "Post-login validation failed")
             # Ask external to dump cookies? We keep persistence at adapter layer; here just set expiry
-            self.store.save({}, new_exp)  # Adapters should override to include real cookies
-            return EnsureSessionResult("REFRESHED", new_exp, "Session refreshed via AFIP token/sign")
+            self.store.save(
+                self.consumer.cookies, new_exp
+            )  # Adapters should override to include real cookies
+            return EnsureSessionResult(
+                "REFRESHED", new_exp, "Session refreshed via AFIP token/sign"
+            )
         except Exception as e:
             self.store.mark_inactive()
             return EnsureSessionResult("ERROR", None, f"Login failed: {e}")
