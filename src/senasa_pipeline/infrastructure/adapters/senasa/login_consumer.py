@@ -10,13 +10,14 @@ AFIP_BASE = "https://auth.afip.gob.ar"
 AFIP_LOGIN_URL = f"{AFIP_BASE}/contribuyente_/login.xhtml?action=SYSTEM&system=senasa_traapi"
 
 class SenasaLoginConsumer(SenasaLoginPort):
-    """Completa login SENASA integrando OIDC (IdP) y login AFIP JSF in-situ."""
+    """Completa login SENASA integrando OIDC (IdP) y login AFIP JSF in-situ con control de progreso."""
 
     def __init__(self, http: HttpClientPort, *, cuit: str | None = None, password: str | None = None) -> None:
         self.http = http
         self.cookies: dict[str, str] = {}
         self.cuit = cuit or ""
         self.password = password or ""
+        self._afip_login_attempted = False  # evitar bucles
 
     def _log(self, msg: str) -> None:
         print(f"[SenasaLoginConsumer] {msg}")
@@ -109,18 +110,33 @@ class SenasaLoginConsumer(SenasaLoginPort):
             "Content-Type": "application/x-www-form-urlencoded",
         }
         r = self.http.post(action_url, data=payload, headers=headers)
-        # No necesitamos token/sign aquí: el IdP continuará la cadena
         return r
 
-    def _complete_afip_login_inline(self):
+    def _complete_afip_login_inline(self, current_url: str) -> bool:
+        """Intenta completar login AFIP JSF una sola vez; retorna True si la URL cambia tras el intento."""
+        if self._afip_login_attempted:
+            self._log("Skipping inline AFIP login (already attempted)")
+            return False
         if not self.cuit or not self.password:
-            raise RuntimeError("AFIP JSF inline: faltan CUIT/password para completar OIDC")
-        vs, act1 = self._afip_get_initial()
-        vs2, act2 = self._afip_post_cuit(vs, act1)
-        self._afip_post_password(vs2, act2, referer=act1)
+            self._log("Skipping inline AFIP login (missing credentials)")
+            return False
+        self._afip_login_attempted = True
+        self._log("Inline AFIP login on IdP chain (single attempt)")
+        try:
+            vs, act1 = self._afip_get_initial()
+            vs2, act2 = self._afip_post_cuit(vs, act1)
+            self._afip_post_password(vs2, act2, referer=act1)
+        except Exception as e:
+            self._log(f"Inline AFIP login failed: {e}")
+            return False
+        # Re-intentar la misma URL y verificar progreso
+        after = self.http.get(current_url)
+        progressed = (after.url or '') != (current_url or '')
+        self._log(f"Inline AFIP progressed? {'yes' if progressed else 'no'} -> {after.url}")
+        return progressed
 
     # ---------- Perseguir OIDC hasta volver a SENASA ----------
-    def _chase_until_senasa(self, start_resp, max_hops: int = 30):
+    def _chase_until_senasa(self, start_resp, max_hops: int = 40):
         current = start_resp
         for i in range(max_hops):
             url_now = current.url or ''
@@ -143,18 +159,19 @@ class SenasaLoginConsumer(SenasaLoginPort):
             if js_url:
                 current = self.http.get(js_url)
                 continue
-            # si estamos en IdP, forzar kc_idp_hint
+            # si estamos en IdP, forzar kc_idp_hint una sola vez por URL
             if IDP_HOST in url_now and 'kc_idp_hint' not in url_now:
                 sep = '&' if '?' in url_now else '?'
-                current = self.http.get(f"{url_now}{sep}kc_idp_hint=AFIP")
+                forced = f"{url_now}{sep}kc_idp_hint=AFIP"
+                current = self.http.get(forced)
                 continue
-            # si seguimos en IdP sin más pasos, ejecutar login AFIP inline y refrescar
+            # si seguimos en IdP, intentar inline AFIP una sola vez
             if IDP_HOST in url_now:
-                self._log("Inline AFIP login on IdP chain")
-                self._complete_afip_login_inline()
-                # tras login, intentar nuevamente
-                current = self.http.get(url_now)
-                continue
+                progressed = self._complete_afip_login_inline(url_now)
+                if progressed:
+                    current = self.http.get(SENASA_BASE + "/Login.aspx")
+                    continue
+            # nada más por hacer
             break
         return current
 
@@ -166,14 +183,19 @@ class SenasaLoginConsumer(SenasaLoginPort):
         for inp in soup.find_all('input', {'type': 'hidden', 'name': True}):
             hidden[inp['name']] = inp.get('value', '')
         self._log(f"Hidden keys: {list(hidden.keys())[:6]}... total={len(hidden)}")
-        # botón usuario
+        # botón usuario (fallback: primer anchor dentro del contenedor de usuarios AFIP)
         btn = soup.find('a', id='ctl00_MasterEditBox_ucLogin_rptUsuariosAfip_ctl05_btnLoginAfip')
         if not btn:
             btn = soup.find('a', string=lambda t: t and 'COOP. APICOLA DEL PARANA' in t)
+        if not btn:
+            # fallback: primer link de rptUsuariosAfip
+            cont = soup.find(id=lambda x: x and 'rptUsuariosAfip' in x)
+            if cont:
+                btn = cont.find('a')
         self._log(f"AFIP user button found? {'yes' if btn else 'no'}")
         if not btn:
             return
-        btn_id = btn.get('id', 'ctl00_MasterEditBox_ucLogin_rptUsuariosAfip_ctl05_btnLoginAfip')
+        btn_id = btn.get('id') or 'ctl00_MasterEditBox_ucLogin_rptUsuariosAfip_ctl05_btnLoginAfip'
         event_target = btn_id.replace('_', '$')
         payload = hidden.copy()
         payload.update({
@@ -199,15 +221,7 @@ class SenasaLoginConsumer(SenasaLoginPort):
 
     # ---------- API del puerto ----------
     def login_with_token_sign(self, token: str, sign: str) -> None:
-        # En el flujo OIDC completo, el POST /afip no es estrictamente necesario, pero se mantiene por compatibilidad
-        self._log("Posting token/sign to /afip (compat)")
-        headers = {
-            'Origin': 'https://portalcf.cloud.afip.gob.ar',
-            'Referer': 'https://portalcf.cloud.afip.gob.ar/portal/app/',
-            'Content-Type': 'application/x-www-form-urlencoded',
-        }
-        self.http.post(f"{SENASA_BASE}/afip", data={'token': token, 'sign': sign}, headers=headers, allow_redirects=True)
-        # Disparar OIDC directamente con URL protegida
+        # Disparar OIDC directamente con URL protegida (omitir /afip compat para evitar consumo de token)
         protected = self.http.get(f"{SENASA_BASE}/Sur/Tambores/Consulta")
         self._log(f"GET /Sur/Tambores/Consulta -> status={protected.status_code} url={protected.url}")
         last = self._chase_until_senasa(protected)
