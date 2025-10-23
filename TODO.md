@@ -16,8 +16,8 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 ### Adapters (5)
 - [x] src/senasa_pipeline/infrastructure/adapters/http/httpx_client.py
 - [x] src/senasa_pipeline/infrastructure/adapters/afip/portal_cf_provider.py (robust JSON detection)
-- [ ] src/senasa_pipeline/infrastructure/adapters/afip/jsf_provider.py (fallback)
-- [x] src/senasa_pipeline/infrastructure/adapters/senasa/login_consumer.py
+- [x] src/senasa_pipeline/infrastructure/adapters/afip/jsf_provider.py (fallback)
+- [x] src/senasa_pipeline/infrastructure/adapters/senasa/login_consumer.py (OIDC + selection)
 - [x] src/senasa_pipeline/infrastructure/adapters/session/memory_store.py
 - [x] src/senasa_pipeline/infrastructure/adapters/session/sqlite_store.py
 
@@ -26,7 +26,8 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 
 ### Tests (2+)
 - [x] tests/unit/test_ensure_senasa_session.py
-- [ ] tests/unit/test_portal_cf_provider.py (fixtures con Content-Type no JSON y HTML snippet)
+- [ ] tests/unit/test_portal_cf_provider.py
+- [ ] tests/unit/test_senasa_login_consumer_oidc.py
 
 ## Phase 2: Resilience & Observability
 - [x] Add tenacity-based retries with jitter per network step (httpx client)
@@ -44,7 +45,6 @@ This checklist tracks the end-to-end implementation of AFIP → SENASA authentic
 - [x] Load .env in settings and document variables in README
 
 ## New tasks
-- [ ] Implement JSF fallback provider for AFIP classic login (usa AFIP_PASSWORD)
-- [ ] Enhance SenasaLoginConsumer: selección de usuario en Login.aspx con __EVENTTARGET y __VIEWSTATE
-- [ ] Add logging and metrics to auth flow
-- [ ] Add integration tests using httpx.MockTransport for provider/consumer
+- [ ] Improve provider selection on Login.aspx (fallback a primer usuario si no coincide id/texto)
+- [ ] Add extra OIDC follow-up after selection if needed (loop with cap)
+- [ ] Add integration tests using httpx.MockTransport for OIDC/selection
