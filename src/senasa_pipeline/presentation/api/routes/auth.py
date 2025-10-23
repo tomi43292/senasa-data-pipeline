@@ -17,7 +17,7 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 
 @router.post("/ensure_session")
-def ensure_session() -> dict[str, str]:  # type: ignore[misc]
+def ensure_session() -> dict[str, str | None]:  # type: ignore[misc]
     http = HttpxClient(timeout=settings.http_timeout)
     store = SQLiteSessionStore(db_path=".senasa_auth.sqlite")
     consumer = SenasaLoginConsumer(http=http)
