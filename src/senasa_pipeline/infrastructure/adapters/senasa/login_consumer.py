@@ -1,6 +1,6 @@
 from __future__ import annotations
 from urllib.parse import urljoin
-from bs4 import BeautifulSoup  # type: ignore[import-untyped]
+from bs4 import BeautifulSoup  
 from senasa_pipeline.application.ports.http_client_port import HttpClientPort
 from senasa_pipeline.application.ports.senasa_login_port import SenasaLoginPort
 
