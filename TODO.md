@@ -1,50 +1,83 @@
-# SENASA Authentication Implementation TODO
+# SENASA Data Pipeline - TODO
 
-This checklist tracks the end-to-end implementation of AFIP → SENASA authentication in senasa-data-pipeline using FastAPI, httpx, Clean Architecture, and robust retry/validation.
+## ✅ COMPLETED
 
-## Phase 1: Core Architecture (12 files)
+### ✅ Clean Architecture Foundation
+- [x] Use Cases (Application Layer)
+- [x] Ports/Interfaces (Application Layer)
+- [x] Adapters (Infrastructure Layer)
+- [x] FastAPI Presentation Layer
+- [x] Domain Models and Value Objects
 
-### Ports (4)
-- [x] src/senasa_pipeline/application/ports/session_store_port.py
-- [x] src/senasa_pipeline/application/ports/http_client_port.py
-- [x] src/senasa_pipeline/application/ports/auth_provider_port.py
-- [x] src/senasa_pipeline/application/ports/senasa_login_port.py
+### ✅ Authentication System (AFIP → SENASA)
+- [x] **UnifiedAfipProvider**: JSF login + Portal CF fallback
+- [x] **SenasaLoginConsumer**: POST /afip + user selection
+- [x] **EnsureSenasaSessionUseCase**: orchestration with TTL validation
+- [x] **SQLiteSessionStore**: cookie persistence
+- [x] **HttpxClient**: shared session between AFIP and SENASA
+- [x] **Environment configuration**: CUIT, password, timeouts, TTL
+- [x] **Working E2E flow**: replicates coadelpa-project login() exactly
 
-### Use Cases (1)
-- [x] src/senasa_pipeline/application/use_cases/ensure_senasa_session.py
+## 🚧 IN PROGRESS / TODO
 
-### Adapters (5)
-- [x] src/senasa_pipeline/infrastructure/adapters/http/httpx_client.py
-- [x] src/senasa_pipeline/infrastructure/adapters/afip/portal_cf_provider.py (robust JSON detection)
-- [x] src/senasa_pipeline/infrastructure/adapters/afip/jsf_provider.py (fallback)
-- [x] src/senasa_pipeline/infrastructure/adapters/senasa/login_consumer.py (OIDC + selection)
-- [x] src/senasa_pipeline/infrastructure/adapters/session/memory_store.py
-- [x] src/senasa_pipeline/infrastructure/adapters/session/sqlite_store.py
+### 🔧 Testing & Quality Assurance
+- [ ] **Unit tests** for UnifiedAfipProvider (JSF + Portal CF scenarios)
+- [ ] **Unit tests** for SenasaLoginConsumer (POST /afip + user selection)
+- [ ] **Integration tests** with httpx.MockTransport for HTTP mocking
+- [ ] **E2E tests** with real credentials (optional, for development)
+- [ ] **Error handling tests** (network failures, AFIP down, invalid credentials)
+- [ ] **TTL expiration tests** for SQLiteSessionStore
+- [ ] **Code coverage** reporting with pytest-cov
 
-### API (1)
-- [x] src/senasa_pipeline/presentation/api/routes/auth.py
+### 📋 Logging & Observability
+- [ ] **Structured logging** with loguru or structlog
+- [ ] **Log correlation IDs** across use case execution
+- [ ] **Security**: mask sensitive data (passwords, tokens) in logs
+- [ ] **Performance metrics**: login duration, success/failure rates
+- [ ] **Health check endpoint** for auth system status
+- [ ] **Prometheus metrics** integration (optional)
 
-### Tests (2+)
-- [x] tests/unit/test_ensure_senasa_session.py
-- [ ] tests/unit/test_portal_cf_provider.py
-- [ ] tests/unit/test_senasa_login_consumer_oidc.py
+### 📊 Data Pipeline Core
+- [ ] **SENASA API client** for data extraction
+- [ ] **Data models** for tambores, extracciones, etc.
+- [ ] **ETL use cases** for data processing
+- [ ] **Database adapters** (PostgreSQL/SQLite)
+- [ ] **Scheduling system** for automated runs
+- [ ] **Data validation** and quality checks
 
-## Phase 2: Resilience & Observability
-- [x] Add tenacity-based retries with jitter per network step (httpx client)
-- [ ] Add circuit breaker per upstream (AFIP, PortalCF, SENASA)
-- [ ] structlog logging with context (stage, url, status)
-- [ ] Prometheus counters and histograms for auth attempts and latency
+### 🚀 DevOps & Deployment
+- [ ] **Docker containerization**
+- [ ] **CI/CD pipeline** with GitHub Actions
+- [ ] **Environment-specific configs** (dev/staging/prod)
+- [ ] **Database migrations** strategy
+- [ ] **Monitoring and alerting**
+- [ ] **Deployment documentation**
 
-## Phase 3: Persistence & CLI
-- [x] Implement persistent SessionStore (sqlite/duckdb)
-- [ ] CLI command: `senasa auth ensure`
+### 📚 Documentation
+- [ ] **API documentation** with OpenAPI/Swagger
+- [ ] **Architecture decision records** (ADRs)
+- [ ] **Developer setup guide**
+- [ ] **Authentication flow diagrams**
+- [ ] **Troubleshooting guide**
 
-## Environment & Docs
-- [x] Add .env.example
-- [x] Ignore .env in .gitignore
-- [x] Load .env in settings and document variables in README
+## 📝 NOTES
 
-## New tasks
-- [ ] Improve provider selection on Login.aspx (fallback a primer usuario si no coincide id/texto)
-- [ ] Add extra OIDC follow-up after selection if needed (loop with cap)
-- [ ] Add integration tests using httpx.MockTransport for OIDC/selection
+### Authentication Implementation
+- Follows Clean Architecture principles with clear separation of concerns
+- UnifiedAfipProvider handles both JSF and Portal CF methods with shared HttpClient
+- SenasaLoginConsumer focuses only on SENASA-specific login completion
+- Use case orchestrates the flow and manages session persistence
+- Exact replication of working coadelpa-project login() method
+
+### Next Priority
+1. **Add comprehensive tests** to ensure reliability
+2. **Implement structured logging** for debugging and monitoring
+3. **Begin core data pipeline** features once auth is stable
+
+### Environment Variables Required
+```bash
+AFIP_CUIT=your_cuit_here
+AFIP_PASSWORD=your_password_here
+HTTP_TIMEOUT=45
+SESSION_TTL_HOURS=12
+```
