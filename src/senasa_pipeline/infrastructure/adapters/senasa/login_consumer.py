@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup  # type: ignore[import-untyped]
 from senasa_pipeline.application.ports.http_client_port import HttpClientPort
 from senasa_pipeline.application.ports.senasa_login_port import SenasaLoginPort
+import time
 
 SENASA_BASE = "https://trazabilidadapicola.senasa.gob.ar"
 
@@ -14,12 +15,13 @@ class SenasaLoginConsumer(SenasaLoginPort):
     2. GET/Login.aspx?from=afip y auto-submit si corresponde
     3. Selección de usuario AFIP (AJAX __EVENTTARGET)
     4. Completar posibles formularios/meta refresh posteriores (desde resp_post)
-    5. Validar sesión final
+    5. Validar sesión final DESPUÉS del follow-up completo
     """
 
     def __init__(self, http: HttpClientPort) -> None:
         self.http = http
         self.cookies: dict[str, str] = {}
+        self._session_ready = False  # Flag to track if session setup is complete
 
     def _log(self, msg: str) -> None:
         print(f"[SenasaLoginConsumer] {msg}")
@@ -54,6 +56,7 @@ class SenasaLoginConsumer(SenasaLoginPort):
 
     def login_with_token_sign(self, token: str, sign: str) -> None:
         self._log("Starting SENASA login with AFIP token/sign")
+        self._session_ready = False  # Reset session ready flag
         
         # 1) POST /afip
         afip_url = f"{SENASA_BASE}/afip"
@@ -72,14 +75,15 @@ class SenasaLoginConsumer(SenasaLoginPort):
             resp_login = self.http.get(login_url, allow_redirects=False)
             html = resp_login.text or ''
         
-        # 3) Selección usuario + follow-up exacto como coadelpa-project
-        resp_post = self._select_afip_user_and_follow_up(html, login_url)
+        # 3) Selección usuario + follow-up COMPLETO como coadelpa-project
+        resp_post = self._select_afip_user_and_complete_follow_up(html, login_url)
         
-        # 4) Guardar cookies
+        # 4) Guardar cookies - la sesión debe estar lista ahora
         self.cookies = self.http.dump_cookies()
-        self._log(f"Login complete, {len(self.cookies)} cookies saved")
+        self._session_ready = True  # Mark session as ready after complete follow-up
+        self._log(f"Login complete, {len(self.cookies)} cookies saved, session ready")
 
-    def _select_afip_user_and_follow_up(self, initial_html: str, login_url: str):
+    def _select_afip_user_and_complete_follow_up(self, initial_html: str, login_url: str):
         soup = BeautifulSoup(initial_html, 'html.parser')
         
         # Auto-submit si hay form intermedio con token/sign
@@ -140,25 +144,50 @@ class SenasaLoginConsumer(SenasaLoginPort):
         resp_post = self.http.post(login_url, data=payload, headers=ajax_headers)
         self._log(f"User selection POST -> status={resp_post.status_code}")
         
-        # Probe a Consulta sin redirects (calienta estado)
-        probe = self.http.get(f"{SENASA_BASE}/Sur/Tambores/Consulta", allow_redirects=False)
-        self._log(f"Probe Consulta -> status={probe.status_code} loc={probe.headers.get('Location', '')}")
-        
-        # Follow-up: formularios/meta refresh posteriores, partiendo de resp_post
+        # CRITICAL: Follow-up completo ANTES de cualquier validación
+        # Esto replica el comportamiento de coadelpa-project funcional
         current = resp_post
+        follow_up_completed = False
+        
+        # 1. Procesar todos los formularios y meta refresh posibles
         for i in range(8):
             next_resp = self._auto_submit_first_form(current.text, login_url)
             if next_resp:
                 current = next_resp
+                self._log(f"Follow-up form {i+1} submitted -> status={current.status_code}")
                 continue
             meta_url = self._extract_meta_refresh(current.text, login_url)
             if meta_url:
                 current = self.http.get(meta_url)
+                self._log(f"Follow-up meta refresh {i+1} -> status={current.status_code}")
                 continue
+            # No more follow-ups needed
+            follow_up_completed = True
             break
+        
+        if follow_up_completed:
+            self._log("Follow-up sequence completed successfully")
+        else:
+            self._log("Follow-up sequence reached max iterations")
+        
+        # 2. Pausa breve para permitir que el servidor procese el estado de sesión
+        time.sleep(0.5)
+        
+        # 3. Un último probe suave para "calentar" el estado antes de que el use case valide
+        try:
+            probe = self.http.get(f"{SENASA_BASE}/Sur/Tambores/Consulta", allow_redirects=False)
+            self._log(f"Final probe after follow-up -> status={probe.status_code}")
+        except Exception as e:
+            self._log(f"Final probe failed (non-critical): {e}")
+        
         return current
 
     def validate_session(self) -> bool:
+        """Valida sesión SENASA. Solo debe llamarse DESPUÉS del follow-up completo."""
+        if not self._session_ready:
+            self._log("WARNING: validate_session called before session setup completed")
+            return False
+            
         url = f"{SENASA_BASE}/Sur/Extracciones/List"
         resp = self.http.get(url, allow_redirects=False, headers={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
