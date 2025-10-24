@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
+import time
 
 from senasa_pipeline.application.ports.auth_provider_port import AuthProviderPort
 from senasa_pipeline.application.ports.senasa_login_port import SenasaLoginPort
@@ -62,19 +63,42 @@ class EnsureSenasaSessionUseCase:
             token, sign = self.provider.get_token_sign()
             self.consumer.login_with_token_sign(token, sign)
             new_exp = now + self.ttl
-            # Persist cookies via consumer/store contract: the store should be updated by caller after dumping cookies
-            # Here we assume consumer updated HTTP client's cookies; store persists them
-            # For clarity, consumer.validate_session() after login
-            if not self.consumer.validate_session():
+            
+            # CRITICAL: Post-login validation with retry for timing issues
+            # The follow-up needs time to complete before validation works
+            validation_success = self._validate_with_retry(max_retries=3, delay=1.0)
+            
+            if not validation_success:
                 self.store.mark_inactive()
-                return EnsureSessionResult("ERROR", None, "Post-login validation failed")
-            # Ask external to dump cookies? We keep persistence at adapter layer; here just set expiry
+                return EnsureSessionResult("ERROR", None, "Post-login validation failed after retries")
+            
+            # Save successful session
             self.store.save(
                 self.consumer.cookies, new_exp
-            )  # Adapters should override to include real cookies
+            )
             return EnsureSessionResult(
                 "REFRESHED", new_exp, "Session refreshed via AFIP token/sign"
             )
         except Exception as e:
             self.store.mark_inactive()
             return EnsureSessionResult("ERROR", None, f"Login failed: {e}")
+    
+    def _validate_with_retry(self, max_retries: int = 3, delay: float = 1.0) -> bool:
+        """Retry validation to handle timing issues after login follow-up."""
+        for attempt in range(max_retries):
+            try:
+                if self.consumer.validate_session():
+                    return True
+                    
+                if attempt < max_retries - 1:  # Don't sleep after last attempt
+                    print(f"[EnsureSenasaSessionUseCase] Validation attempt {attempt + 1} failed, retrying in {delay}s...")
+                    time.sleep(delay)
+                    delay *= 1.5  # Exponential backoff
+                    
+            except Exception as e:
+                print(f"[EnsureSenasaSessionUseCase] Validation attempt {attempt + 1} exception: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(delay)
+                    delay *= 1.5
+        
+        return False
