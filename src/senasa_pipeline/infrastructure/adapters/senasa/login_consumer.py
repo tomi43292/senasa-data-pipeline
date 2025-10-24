@@ -173,10 +173,18 @@ class SenasaLoginConsumer(SenasaLoginPort):
         # 2. Pausa breve para permitir que el servidor procese el estado de sesión
         time.sleep(0.5)
         
-        # 3. Un último probe suave para "calentar" el estado antes de que el use case valide
+        # 3. CRITICAL: Follow redirects in final probe to complete authentication
+        # This is where the session actually gets established
         try:
-            probe = self.http.get(f"{SENASA_BASE}/Sur/Tambores/Consulta", allow_redirects=False)
-            self._log(f"Final probe after follow-up -> status={probe.status_code}")
+            probe = self.http.get(f"{SENASA_BASE}/Sur/Tambores/Consulta", allow_redirects=True)
+            self._log(f"Final probe after follow-up -> status={probe.status_code} final_url={probe.url}")
+            
+            # If we got redirected back to login, the session isn't ready yet
+            if '/Login.aspx' in str(probe.url):
+                self._log("Final probe redirected to login - session not fully established yet")
+            else:
+                self._log("Final probe successful - session should be ready")
+                
         except Exception as e:
             self._log(f"Final probe failed (non-critical): {e}")
         
@@ -189,15 +197,23 @@ class SenasaLoginConsumer(SenasaLoginPort):
             return False
             
         url = f"{SENASA_BASE}/Sur/Extracciones/List"
-        resp = self.http.get(url, allow_redirects=False, headers={
+        
+        # Allow redirects but check final URL to detect login redirects
+        resp = self.http.get(url, allow_redirects=True, headers={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Referer": f"{SENASA_BASE}/",
         })
-        if resp.status_code in (301, 302, 303, 307, 308):
-            loc = resp.headers.get('Location', '')
-            self._log(f"Validation redirect to: {loc}")
-            if '/Login.aspx' in loc:
-                return False
+        
+        # Check if we got redirected to login page
+        final_url = str(resp.url) if hasattr(resp, 'url') else ''
+        if '/Login.aspx' in final_url:
+            self._log(f"Validation redirected to login: {final_url}")
+            return False
+            
+        # Check for viewstate in the response
         viewstate_present = 'name="__VIEWSTATE"' in resp.text
-        self._log(f"Validation -> status={resp.status_code} viewstate={viewstate_present}")
-        return resp.status_code == 200 and viewstate_present
+        
+        self._log(f"Validation -> status={resp.status_code} final_url={final_url} viewstate={viewstate_present}")
+        
+        # Valid session: 200 status AND viewstate present AND not on login page
+        return resp.status_code == 200 and viewstate_present and '/Login.aspx' not in final_url
