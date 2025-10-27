@@ -188,27 +188,18 @@ class SenasaLoginConsumer(SenasaLoginPort):
         self._log(f"Posting user selection with payload keys: {list(payload.keys())}")
         resp_post = self.http.post(login_url, data=payload, headers=ajax_headers)
         self._log_response_details(resp_post, "User-selection-POST")
-        current = resp_post
         self._log("Starting follow-up sequence...")
-        for i in range(8):
-            self._log(f"Follow-up iteration {i+1}/8")
-            self._log_response_details(current, f"Follow-up-iter-{i+1}")
-            next_resp = self._auto_submit_first_form(current.text, login_url)
-            if next_resp:
-                current = next_resp
-                self._log(f"Follow-up form {i+1} submitted")
-                continue
-            meta_url = self._extract_meta_refresh(current.text, login_url)
-            if meta_url:
-                self._log(f"Following meta refresh to: {meta_url}")
-                current = self.http.get(meta_url)
-                self._log_response_details(current, f"Meta-refresh-{i+1}")
-                continue
-            self._log(f"Follow-up completed at iteration {i+1}")
-            break
-        self._log("Pausing for session stabilization...")
+        for _ in range(8):
+            next_resp = self._auto_submit_first_form(resp_post.text, base_url=login_url)
+            if next_resp is None:
+                meta_url = self._extract_meta_refresh(resp_post.text, base_url=login_url)
+                if meta_url:
+                    resp_post = self.http.get(meta_url)
+                    continue
+                break
+            resp_post = next_resp
         time.sleep(0.5)
-        return current
+        return resp_post
 
 
 
