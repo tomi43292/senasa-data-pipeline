@@ -36,6 +36,12 @@ class SenasaLoginConsumer(SenasaLoginPort):
         self._log(f"{label} HTML snippet: {snippet}")
 
     def _log_response_details(self, resp, step_name: str) -> None:
+        """Logs response details with domain and content length.
+        
+        Args:
+            resp: HTTP response object.
+            step_name (str): Name of the step for logging.
+        """
         url = getattr(resp, "url", "unknown")
         domain = urlparse(str(url)).netloc if url != "unknown" else "unknown"
         content_length = len(resp.text) if hasattr(resp, "text") else 0
@@ -60,8 +66,35 @@ class SenasaLoginConsumer(SenasaLoginPort):
         # Dump pequeño de HTML para inspección
         self._dump_snippet(getattr(resp, "text", ""), f"{step_name}")
 
+    def login_with_token_sign(self, token: str, sign: str) -> None:
+        """Consumes AFIP token/sign and completes SENASA login (including user selection).
+        
+        Args:
+            token (str): AFIP token.
+            sign (str): AFIP sign.
+        """
+        self._log(f"Step 1. Starting SENASA login with AFIP token: {token} and sign: {sign}")
+        self._session_ready = False
+        afip_html = self._post_token_sign_to_senasa(token, sign)
+        self._log("Step 2. Starting user selection and follow-up")
+        login_url = f"{SENASA_BASE}/Login.aspx?from=afip"
+        self._select_afip_user_and_complete_follow_up(afip_html, login_url)
+        self._log("Step 3. Assert session")
+        self._assert_senasa_session()
+        self._log("Step 4. Save cookies")
+        self.cookies = self.http.dump_cookies()
+        self._log("Step 5. Login complete, session ready")
+
     def _auto_submit_first_form(self, html: str, base_url: str):
-        """Auto-submit the first form found in the HTML"""
+        """Auto-submit the first form found in the HTML
+        
+        Args:
+            html (str): HTML content to parse.
+            base_url (str): Base URL for form submission.
+        
+        Returns:
+            Optional[Response]: HTTP response object if form submission is successful, None otherwise.
+        """
         soup = BeautifulSoup(html, "html.parser")
         form = soup.find("form")
         if not form:
@@ -84,10 +117,19 @@ class SenasaLoginConsumer(SenasaLoginPort):
                 "Referer": base_url,
             },
         )
-        self._log_response_details(resp, "Auto-form-submit")
+        self._log_response_details(resp, "Auto-form-submit response")
         return resp
 
     def _extract_meta_refresh(self, html: str, base_url: str):
+        """Extracts meta refresh URL from HTML.
+        
+        Args:
+            html (str): HTML content to parse.
+            base_url (str): Base URL for meta refresh URL.
+        
+        Returns:
+            Optional[str]: Meta refresh URL if found, None otherwise.
+        """
         soup = BeautifulSoup(html, "html.parser")
         meta = soup.find("meta", attrs={"http-equiv": lambda v: v and v.lower() == "refresh"})
         if not meta:
@@ -101,36 +143,43 @@ class SenasaLoginConsumer(SenasaLoginPort):
             return full_url
         return None
 
-    def login_with_token_sign(self, token: str, sign: str) -> None:
-        self._log("Starting SENASA login with AFIP token/sign")
-        self._session_ready = False
-        afip_url = f"{SENASA_BASE}/afip"
+    def _post_token_sign_to_senasa(self,token:str,sign:str)->str:
+        """Posts token/sign to SENASA and returns the response HTML.
+        
+        Args:
+            token (str): AFIP token.
+            sign (str): AFIP sign.
+        
+        Returns:
+            str: Response HTML.
+        """
+        url = f"{SENASA_BASE}/afip"
         headers = {
             "Referer": "https://portalcf.cloud.afip.gob.ar/portal/app/",
             "Origin": "https://portalcf.cloud.afip.gob.ar",
             "Content-Type": "application/x-www-form-urlencoded",
         }
-        resp_afip = self.http.post(
-            afip_url, data={"token": token, "sign": sign}, headers=headers, allow_redirects=True
+        resp = self.http.post(
+            url, data={"token": token, "sign": sign}, headers=headers, allow_redirects=True
         )
-        self._log_response_details(resp_afip, "POST-afip")
-        login_url = f"{SENASA_BASE}/Login.aspx?from=afip"
-        html = resp_afip.text or ""
-        if not html or len(html) < 100:
-            self._log("Getting Login.aspx?from=afip explicitly")
-            resp_login = self.http.get(login_url, allow_redirects=False)
-            self._log_response_details(resp_login, "GET-login-aspx")
-            html = resp_login.text or ""
-        self._log("Starting user selection and follow-up")
-        self._select_afip_user_and_complete_follow_up(html, login_url)
-        self._assert_senasa_session()
-        self.cookies = self.http.dump_cookies()
-        self._log(f"Login complete, {len(self.cookies)} cookies saved, session ready")
+        self._log_response_details(resp, "POST-afip")
+        return resp.text
+        
+
+
 
     def _select_afip_user_and_complete_follow_up(self, initial_html: str, login_url: str):
+        """Selects AFIP user and completes follow-up.
+        
+        Args:
+            initial_html (str): Initial HTML content.
+            login_url (str): Login URL.
+        """
         html = initial_html
         soup = BeautifulSoup(html, "html.parser")
+        self._log(f"Step 2.1.HTML content before form selection: {html}")
         form = soup.find("form")
+        self._log(f"Step 2.2.Form found with token/sign: {form}")
         if form and form.find("input", {"name": "token"}) and form.find("input", {"name": "sign"}):
             self._log("Found intermediate form with token/sign, auto-submitting")
             action = form.get("action") or login_url
@@ -159,7 +208,7 @@ class SenasaLoginConsumer(SenasaLoginPort):
             cont = soup.find(id=lambda x: x and "rptUsuariosAfip" in x)
             if cont:
                 btn = cont.find("a")
-        self._log(f"SENASA user button found? {'yes' if btn else 'no'}")
+        self._log(f"Step 2.3.SENASA user button found? {'yes' if btn else 'no'} select :{btn}")
         if not btn:
             self._log("ERROR: Could not find SENASA user button")
             return None
@@ -199,11 +248,17 @@ class SenasaLoginConsumer(SenasaLoginPort):
                 break
             resp_post = next_resp
         time.sleep(0.5)
+        self._log_response_details(resp_post, "Step 2.4.Follow-up sequence completed")
         return resp_post
 
 
 
     def validate_session(self) -> bool:
+        """Validates SENASA session.
+        
+        Returns:
+            bool: True if session is valid, False otherwise.
+        """
         if not self._session_ready:
             self._log("WARNING: validate_session called before session setup completed")
             return False
@@ -233,17 +288,27 @@ class SenasaLoginConsumer(SenasaLoginPort):
         return success
 
     def _assert_senasa_session(self)->None:
+        """Asserts SENASA session.
+        
+        Raises:
+            RuntimeError: If session is not found.
+        """
         url=f"{SENASA_BASE}/Sur/Extracciones/List"
         resp=self.http.get(url,allow_redirects=True,headers={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Referer": f"{SENASA_BASE}/",
         })
+        self._log_response_details(resp,"Session-assertion")
+        self._log(f"Final URL: {resp.url}")
+        self._log(f"Status code: {resp.status_code}")
         if resp.status_code in (301,302,303,307,308):
             loc=resp.headers.get("Location","")
             if '/Login.aspx' in loc:
                 self._log("Session not found")
                 raise RuntimeError("Session not found")
         if resp.status_code == 200 and 'name="__VIEWSTATE"' not in resp.text:
+            self._log("Response in text: ")
+            self._log(resp.text)
             self._log("This page dont´s have a viewstate, Session not found")
             raise RuntimeError("Session not found")
         self._session_ready=True

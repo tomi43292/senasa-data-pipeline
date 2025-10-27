@@ -60,7 +60,9 @@ class EnsureSenasaSessionUseCase:
                 pass
         # Fresh login via AFIP token/sign path
         try:
+            print("Fresh login via AFIP token/sign path")
             token, sign = self.provider.get_token_sign()
+            print(f"Token: {token}, Sign: {sign}")
             self.consumer.login_with_token_sign(token, sign)
             new_exp = now + self.ttl
             

@@ -232,7 +232,7 @@ class UnifiedAfipProvider(AfipTokenProviderPort):
             or service_info.get("servicio", {}).get("serviceName") != "senasa_traapi"
         ):
             raise RuntimeError("Portal CF: servicio senasa_traapi no disponible para el CUIT")
-
+        self._log(f"Portal CF fallback successful {service_info}, got token/sign")
         token, sign = self._portal_get_authorization()
         self._log("Portal CF fallback successful, got token/sign")
 
