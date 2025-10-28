@@ -250,22 +250,36 @@ class SenasaLoginConsumer(SenasaLoginPort):
         else:
             self._log("AJAX response empty/null (success indicator)")"""
         
-        # Navigate to Default.aspx like the browser does
+        # Navigate to Default.aspx like the browser does with EXACT DevTools headers
         self._log("Navigating to /Default.aspx to establish session")
-        default_resp = self.http.get(f"{SENASA_BASE}/Default.aspx", allow_redirects=False, headers={
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        default_headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "es-419,es;q=0.9,en;q=0.8",
+            "Cache-Control": "max-age=0",
+            "Priority": "u=0, i",
             "Referer": login_url,
-        })
+            "Sec-Ch-Ua": '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+        }
+        
+        default_resp = self.http.get(f"{SENASA_BASE}/Default.aspx", allow_redirects=False, headers=default_headers)
         self._log_response_details(default_resp, "Default-aspx")
         
         # Verify we got to the main app page
         if default_resp.status_code != 200:
             if default_resp.status_code in (301, 302, 303, 307, 308):
                 loc = default_resp.headers.get('Location', '')
+                self._log(f"Default.aspx redirected to: {loc}")
                 if '/Login.aspx' in loc:
                     raise RuntimeError("Default.aspx redirected to login - session not established")
-                else:
-                    self._log(f"Default.aspx redirected to: {loc}")
             else:
                 raise RuntimeError(f"Default.aspx returned {default_resp.status_code}")
         
@@ -298,10 +312,25 @@ class SenasaLoginConsumer(SenasaLoginPort):
             return False
         
         url = f"{SENASA_BASE}/Sur/Extracciones/List"
-        resp = self.http.get(url, allow_redirects=False, headers={
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        validation_headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "es-419,es;q=0.9,en;q=0.8",
+            "Cache-Control": "max-age=0",
+            "Priority": "u=0, i",
             "Referer": f"{SENASA_BASE}/Default.aspx",
-        })
+            "Sec-Ch-Ua": '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+        }
+        
+        resp = self.http.get(url, allow_redirects=False, headers=validation_headers)
         self._log_response_details(resp, "Session-validation")
         
         if resp.status_code in (301, 302, 303, 307, 308):
