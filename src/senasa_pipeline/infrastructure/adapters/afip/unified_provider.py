@@ -31,7 +31,11 @@ class UnifiedAfipProvider(AfipTokenProviderPort):
 
     # ---------- AFIP JSF Login ----------
     def _get_initial_afip_cuit_page(self) -> tuple[str, str]:
-        """GET inicial a AFIP JSF para extraer ViewState y action."""
+        """GET inicial a AFIP JSF para extraer ViewState y action.
+        
+        Returns:
+            tuple[str, str]: ViewState y action URL.
+        """
         resp = self.http.get(
             AFIP_LOGIN_URL,
             headers={
@@ -53,7 +57,15 @@ class UnifiedAfipProvider(AfipTokenProviderPort):
         return view_state_input.get("value", ""), action_url
 
     def _post_cuit(self, view_state_cuit: str, action_url: str) -> tuple[str, str]:
-        """POST CUIT a AFIP JSF para obtener nuevo ViewState y action."""
+        """POST CUIT a AFIP JSF para obtener nuevo ViewState y action.
+        
+        Args:
+            view_state_cuit (str): ViewState inicial.
+            action_url (str): URL de action inicial.
+        
+        Returns:
+            tuple[str, str]: Nuevo ViewState y action URL.
+        """
         payload = {
             "F1": "F1",
             "F1:username": self.cuit,
@@ -123,7 +135,14 @@ class UnifiedAfipProvider(AfipTokenProviderPort):
 
     # ---------- Portal CF Fallback ----------
     def _portal_open_app(self) -> None:
-        """Abre Portal CF /app para inicializar sesión."""
+        """Abre Portal CF /app para inicializar sesión.
+        
+        Args:
+            None
+        
+        Returns:
+            None
+        """
         self.http.get(
             f"{PORTAL_CF_BASE}/portal/app/",
             headers={
@@ -132,7 +151,14 @@ class UnifiedAfipProvider(AfipTokenProviderPort):
         )
 
     def _portal_get_service_info(self) -> dict[str, object]:
-        """GET servicio info con reintentos si no hay JSON directo."""
+        """GET servicio info con reintentos si no hay JSON directo.
+        
+        Args:
+            None
+        
+        Returns:
+            dict[str, object]: Servicio info.
+        """
         url = f"{PORTAL_CF_BASE}/portal/api/servicios/{self.cuit}/servicio/senasa_traapi"
 
         resp = self.http.get(
@@ -165,7 +191,14 @@ class UnifiedAfipProvider(AfipTokenProviderPort):
                 return {}
 
     def _portal_get_authorization(self) -> tuple[str, str]:
-        """GET token/sign de autorización con reintentos."""
+        """GET token/sign de autorización con reintentos.
+        
+        Args:
+            None
+        
+        Returns:
+            tuple[str, str]: Token y sign.
+        """
         url = (
             f"{PORTAL_CF_BASE}/portal/api/servicios/{self.cuit}/servicio/senasa_traapi/autorizacion"
         )
@@ -201,7 +234,14 @@ class UnifiedAfipProvider(AfipTokenProviderPort):
 
     # ---------- API del puerto ----------
     def get_token_sign(self) -> tuple[str, str]:
-        """Obtiene token/sign: AFIP JSF primero, fallback a Portal CF."""
+        """Obtiene token/sign: AFIP JSF primero, fallback a Portal CF.
+        
+        Args:
+            None
+        
+        Returns:
+            tuple[str, str]: Token y sign.
+        """
         self._log("Starting AFIP JSF login")
 
         try:
