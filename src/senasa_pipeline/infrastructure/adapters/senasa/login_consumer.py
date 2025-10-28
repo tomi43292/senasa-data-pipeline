@@ -256,7 +256,7 @@ class SenasaLoginConsumer(SenasaLoginPort):
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Referer": login_url,
         })
-        self._log_response_details(default_resp, "Default-aspx")
+        self._log_response_details(default_resp, f"Default-aspx status-code {default_resp.status_code} ")
         
         # Verify we got to the main app page
         if default_resp.status_code != 200:
