@@ -45,6 +45,9 @@ class SenasaLoginConsumer(SenasaLoginPort):
             self._log(f"{step_name} -> forms={len(forms)} viewstate={viewstate}")
         if content_length < 500:  # Log short responses completely
             self._dump_snippet(getattr(resp, "text", ""), step_name)
+        sent_cookies = resp.request.headers.get('Cookie', 'NO COOKIES SENT') if hasattr(resp, 'request') else 'NO REQUEST INFO'
+        self._log(f"{step_name} -> cookies_sent: {sent_cookies[:200]}...")
+
 
     def _parse_updatepanel_response(self, response_text: str) -> str | None:
         """Parse Microsoft AJAX UpdatePanel response for pageRedirect."""
@@ -260,6 +263,7 @@ class SenasaLoginConsumer(SenasaLoginPort):
             "Priority": "u=0, i",
             "Referer": login_url,
         }
+        default_resp = self.http.get(f"{SENASA_BASE}/Default.aspx", allow_redirects=False, headers=default_headers)
         self._log_response_details(default_resp, "Default-aspx")
         
         # Verify we got to the main app page
