@@ -269,8 +269,6 @@ class SenasaLoginConsumer(SenasaLoginPort):
             else:
                 raise RuntimeError(f"Default.aspx returned {default_resp.status_code}")
         
-        if 'name="__VIEWSTATE"' not in default_resp.text:
-            raise RuntimeError("Default.aspx has no __VIEWSTATE - session not established")
         
         self._log("Session established successfully at /Default.aspx")
 
