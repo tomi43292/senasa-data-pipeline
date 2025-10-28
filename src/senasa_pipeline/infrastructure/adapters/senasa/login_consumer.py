@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from mimetypes import init
 import re
 import time
 from urllib.parse import urljoin, urlparse, unquote
@@ -13,8 +14,8 @@ SENASA_BASE = "https://trazabilidadapicola.senasa.gob.ar"
 
 
 class SenasaLoginConsumer(SenasaLoginPort):
-    """Consume token/sign AFIP para establecer sesión SENASA.
-    Replica exactamente el flujo de DevTools: POST AJAX -> /Default.aspx -> validación.
+    """
+    Consume token/sign AFIP para establecer sesión SENASA.
     """
 
     def __init__(self, http: HttpClientPort) -> None:
@@ -111,17 +112,17 @@ class SenasaLoginConsumer(SenasaLoginPort):
         self._session_ready = False
         
         # 1. POST token/sign to SENASA
-        self._post_token_sign_to_senasa(token, sign)
+        html=self._post_token_sign_to_senasa(token, sign)
         
         # 2. Get login page and select user
-        self._select_user_and_establish_session()
+        self._select_user_and_establish_session(html)
         
         # 3. Save cookies
         self.cookies = self.http.dump_cookies()
         self._session_ready = True
         self._log(f"Login complete, {len(self.cookies)} cookies saved")
 
-    def _post_token_sign_to_senasa(self, token: str, sign: str) -> None:
+    def _post_token_sign_to_senasa(self, token: str, sign: str) -> str:
         """Step 1: POST token/sign to /afip endpoint."""
         url = f"{SENASA_BASE}/afip"
         headers = {
@@ -131,20 +132,22 @@ class SenasaLoginConsumer(SenasaLoginPort):
         }
         resp = self.http.post(url, data={"token": token, "sign": sign}, headers=headers, allow_redirects=True)
         self._log_response_details(resp, "POST-afip")
+        return resp.text
 
-    def _select_user_and_establish_session(self) -> None:
+    def _select_user_and_establish_session(self,initial_html: str | None = None) -> None:
         """Step 2: Navigate to login page, select user, and establish session."""
         login_url = f"{SENASA_BASE}/Login.aspx?from=afip"
-        
+        html=initial_html or ''
         # GET login page with user selection
-        resp = self.http.get(login_url, headers={
+        if not html:
+            resp = self.http.get(login_url, headers={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Referer": f"{SENASA_BASE}/afip",
-        })
-        self._log_response_details(resp, "GET-login-page")
+            },allow_redirects=False)
+            self._log_response_details(resp, "GET-login-page")
         
         # Handle intermediate token/sign form if present
-        soup = BeautifulSoup(resp.text, "html.parser")
+        soup = BeautifulSoup(html, "html.parser")
         form = soup.find("form")
         if form and form.find("input", {"name": "token"}) and form.find("input", {"name": "sign"}):
             self._log("Auto-submitting intermediate token/sign form")
@@ -189,7 +192,7 @@ class SenasaLoginConsumer(SenasaLoginPort):
         if not user_btn:
             raise RuntimeError("Could not find COOP. APICOLA DEL PARANA user button")
         
-        btn_id = user_btn.get("id")
+        btn_id = user_btn.get('id', 'ctl00_MasterEditBox_ucLogin_rptUsuariosAfip_ctl05_btnLoginAfip')
         if not btn_id:
             raise RuntimeError("User button has no ID")
         
@@ -229,7 +232,7 @@ class SenasaLoginConsumer(SenasaLoginPort):
         resp_ajax = self.http.post(login_url, data=payload, headers=ajax_headers)
         self._log_response_details(resp_ajax, "User-selection-AJAX")
         
-        # Handle response
+        """# Handle response
         if hasattr(resp_ajax, 'text') and resp_ajax.text.strip():
             # Non-empty response - check for UpdatePanel redirect
             if resp_ajax.text.startswith('1|#|'):
@@ -245,7 +248,7 @@ class SenasaLoginConsumer(SenasaLoginPort):
                 self._log("Non-empty AJAX response (unexpected):")
                 self._dump_snippet(resp_ajax.text, "AJAX-unexpected")
         else:
-            self._log("AJAX response empty/null (success indicator)")
+            self._log("AJAX response empty/null (success indicator)")"""
         
         # Navigate to Default.aspx like the browser does
         self._log("Navigating to /Default.aspx to establish session")
