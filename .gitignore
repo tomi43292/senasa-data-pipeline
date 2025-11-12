@@ -3,3 +3,4 @@ __pycache__/
 .env
 .senasa_auth.sqlite
 .venv/
+.TODO.md

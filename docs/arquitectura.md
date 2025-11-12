@@ -3,7 +3,7 @@
 ## Capas
 
 - Domain: entidades, value objects e interfaces (repos/services) puras.
-- Application: casos de uso y ports (sin depender de frameworks).
+- Application: casos de uso y ports.
 - Infrastructure: adapters/repositories que implementan interfaces.
 - Presentation: FastAPI (routers) y CLI (Typer) que orquestan casos de uso.
 
